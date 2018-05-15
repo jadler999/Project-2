@@ -1,0 +1,123 @@
+---
+title: 'Project #2'
+author: "J.Bonacci"
+date: "5/15/2018"
+output: html_document
+---
+
+```{r}
+remove(list=ls())
+```
+
+## R Markdown
+
+##Libraries
+```{r}
+library('ddalpha')
+library('kernlab')
+library('caret')
+library('MASS')
+library('randomForest')
+library("dplyr")
+library("e1071")
+```
+
+
+#Reading in the datasets 
+```{r}
+train_data <- read.csv(file="/Users/Jadler/Desktop/ECON386REPO-master/Prediction Project/training.csv")
+test_data <- read.csv(file="/Users/Jadler/Desktop/ECON386REPO-master/Prediction Project/testing.csv")
+```
+
+##Count NA values
+```{r}
+sapply(train_data, function(x) sum(is.na(x)))
+sapply(test_data, function(x) sum(is.na(x)))
+```
+
+#Remove all columns containing at least one NA
+```{r}
+train_data2 <- train_data[ , apply(train_data, 2, function(x) !any(is.na(x)))]
+test_data2 <- test_data[ , apply(test_data, 2, function(x) !any(is.na(x)))]
+```
+
+#input NAs into all blank observations
+```{r}
+train_data2[train_data2==""] <- NA
+test_data2[test_data2==""] <- NA
+
+```
+#Count NA values again to check
+
+```{r}
+sapply(train_data2, function(x) sum(is.na(x)))
+sapply(test_data2, function(x) sum(is.na(x)))
+```
+
+#input NAs into all blank observations
+```{r}
+train_data3<- train_data2[ , apply(train_data2, 2, function(x) !any(is.na(x)))]
+test_data3<- test_data2[ , apply(test_data2, 2, function(x) !any(is.na(x)))]
+```
+
+#omits zero variance predictors
+```{r}
+##freq cut and unique cut arguments can be ommitted if it fits better with out them (leaving arguments in cuts more predictors)
+
+remove_cols <- nearZeroVar(train_data3,names=TRUE)
+all_cols<-names(train_data3)
+train_data4<-train_data3[ , setdiff(all_cols,remove_cols)]
+
+
+
+remove_cols2<-nearZeroVar(test_data3,names=TRUE)
+all_cols2<-names(test_data3)
+test_data4<-test_data3[ , setdiff(all_cols2,remove_cols2)]
+
+
+
+
+```
+
+#rename datasets
+```{r}
+train <- train_data4
+test <- test_data4
+```
+
+#removing timestamps and factor variables
+```{r}
+train_final<- train[c(7:53)]
+test_final<- test[c(7:53)]
+```
+
+#removing old datasets
+```{r}
+remove(train_data, train_data2, train_data3, train, test_data, test_data2, test_data3, test)
+```
+
+#partitioning data
+```{r}
+trainingRowIndex<-sample(1:nrow(train_final), size = .7*nrow(train_final))
+part_training<-train_final[trainingRowIndex, ]
+part_test <-train_final[-trainingRowIndex, ]
+```
+
+#random forest with default number of variables at each node (Jack Bonacci)
+```{r}
+set.seed(1234)
+train_final$classe<- as.factor(train_final$classe)
+rf<- randomForest(classe~., data=train_final)
+pred<- predict(rf,test_final)
+pred
+
+#Checking in-sample error
+tab<-table(predict(rf), train_final$classe, dnn=c("Prediction", "Actual"))
+tab
+1-sum(diag(tab))/sum(tab)
+
+#checking out of sample error
+postResample(pred = rf, obs = train_final$classe)
+
+
+```
