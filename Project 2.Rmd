@@ -1,6 +1,6 @@
 ---
 title: 'Project #2'
-author: "J.Bonacci"
+author: "J.Bonacci, Stefan Jonsson, James Adler, Nikki Barden"
 date: "5/15/2018"
 output: html_document
 ---
@@ -20,13 +20,15 @@ library('MASS')
 library('randomForest')
 library("dplyr")
 library("e1071")
+library('rpart')
+library('rpart.plot')
 ```
 
 
 #Reading in the datasets 
 ```{r}
-train_data <- read.csv(file="/Users/Jadler/Desktop/ECON386REPO-master/Prediction Project/training.csv")
-test_data <- read.csv(file="/Users/Jadler/Desktop/ECON386REPO-master/Prediction Project/testing.csv")
+train_data <- read.csv('https://raw.githubusercontent.com/slevkoff/ECON386REPO/master/Prediction%20Project/training.csv')
+test_data <- read.csv('https://raw.githubusercontent.com/slevkoff/ECON386REPO/master/Prediction%20Project/testing.csv')
 ```
 
 ##Count NA values
@@ -87,37 +89,83 @@ test <- test_data4
 
 #removing timestamps and factor variables
 ```{r}
-train_final<- train[c(7:53)]
-test_final<- test[c(7:53)]
+train_final<- train[c(7:59)]
+test_final<- test[c(7:59)]
+```
+
+
+
+#partitioning data
+```{r}
+#partitions 70% of data into training set
+trainingRowIndex<-sample(1:nrow(train_final), size = .7*nrow(train_final))
+part_training<-train_final[trainingRowIndex, ]
+
+#leaves 30% for testing and validating 
+part_test <-train_final[-trainingRowIndex, ]
+
+
+
 ```
 
 #removing old datasets
 ```{r}
-remove(train_data, train_data2, train_data3, train, test_data, test_data2, test_data3, test)
-```
-
-#partitioning data
-```{r}
-trainingRowIndex<-sample(1:nrow(train_final), size = .7*nrow(train_final))
-part_training<-train_final[trainingRowIndex, ]
-part_test <-train_final[-trainingRowIndex, ]
+remove(train_data, train_data2, train_data3,train_data4, train, test_data, test_data2, test_data3, test,test_data4,train_final)
 ```
 
 #random forest with default number of variables at each node (Jack Bonacci)
 ```{r}
+
 set.seed(1234)
-train_final$classe<- as.factor(train_final$classe)
-rf<- randomForest(classe~., data=train_final)
-pred<- predict(rf,test_final)
-pred
+part_training$classe<- as.factor(part_training$classe)
+jack_rf<- randomForest(classe~., part_training)
+jack_pred<- predict(jack_rf, part_test)
+confusionMatrix(jack_pred, part_test$classe,  dnn = c("Prediction", "Reference"))
 
-#Checking in-sample error
-tab<-table(predict(rf), train_final$classe, dnn=c("Prediction", "Actual"))
-tab
-1-sum(diag(tab))/sum(tab)
 
-#checking out of sample error
-postResample(pred = rf, obs = train_final$classe)
+
+
+#Running algorithm on test data
+jack_final_prediction<- predict(jack_rf, test_final)
+jack_final_prediction
+```
+
+
+#cart (James Adler)
+```{r}
+#creating model and looking at it
+set.seed(117)
+james_tree <- rpart(classe ~. ,data = part_training, method = "class")
+printcp(james_tree)
+rpart.plot(james_tree,type = 3,digits = 3, fallen.leaves = TRUE)
+
+#runs new algorithm on new data
+james_pred<-predict(james_tree, part_test,type="class")
+confusionMatrix(james_pred,part_test$classe)
+
+
+james_final_prediction<-predict(james_tree,test_final)
+james_final_prediction
 
 
 ```
+
+#Random forest variation with regularization of data (Nikki)
+```{r}
+set.seed(1234)
+x <- subset(part_training, select=-classe)
+y <- part_training$classe
+bestmtry <- tuneRF(x, y, stepFactor = 1.5, improve=1e-5, ntree=500)
+print(bestmtry)
+nikki_rf <- randomForest(classe~., data=part_training, ntree=300, mtry=10, importance=TRUE)
+nikki_pred <- predict(nikki_rf, part_test)
+nikki_pred
+confusionMatrix(nikki_pred, part_test$classe, dnn=c("prediction","reference"))
+
+
+# Run final prediction
+nikki_finalpred <- predict(nikki_rf, test_final)
+nikki_finalpred
+```
+
+
