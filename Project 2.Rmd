@@ -3,8 +3,8 @@ title: 'Project #2'
 author: "J.Bonacci, Stefan Jonsson, James Adler, Nikki Barden"
 date: "5/15/2018"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 ```{r}
@@ -195,7 +195,7 @@ confusionMatrix(stefan_pred,part_test$classe, dnn=c("prediction","reference"))
 
 
 
-#This is Stefan's neural network enter if you dare my computer hates it
+#This is Stefan's neural network, it wouldn't run so we left it commented out
 
 scaledata<-scale(train_final[,1:52]) #scale normalization
 
