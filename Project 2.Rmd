@@ -2,7 +2,9 @@
 title: 'Project #2'
 author: "J.Bonacci, Stefan Jonsson, James Adler, Nikki Barden"
 date: "5/15/2018"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r}
@@ -10,6 +12,7 @@ remove(list=ls())
 ```
 
 ## R Markdown
+##Nikki's method consistently performed the best so we chose to go with hers. We tried to cut our predictors by making the non zero variance function stricter but it actually hurt our prediction out of sample. We chose not to validate the data because it did not improve the random forest model much or at all. Nikki_finalpred is the final output for the out of sample test set.
 
 ##Libraries
 ```{r}
@@ -22,6 +25,11 @@ library("dplyr")
 library("e1071")
 library('rpart')
 library('rpart.plot')
+library('neuralnet')
+library('nnet')
+library('ggvis')
+library('class')
+library('gmodels')
 ```
 
 
@@ -117,6 +125,7 @@ remove(train_data, train_data2, train_data3,train_data4, train, test_data, test_
 ```{r}
 
 set.seed(1234)
+#creates the random forest
 part_training$classe<- as.factor(part_training$classe)
 jack_rf<- randomForest(classe~., part_training)
 jack_pred<- predict(jack_rf, part_test)
@@ -133,18 +142,22 @@ jack_final_prediction
 
 #cart (James Adler)
 ```{r}
-#creating model and looking at it
+#creating cart model 
 set.seed(117)
 james_tree <- rpart(classe ~. ,data = part_training, method = "class")
-printcp(james_tree)
-rpart.plot(james_tree,type = 3,digits = 3, fallen.leaves = TRUE)
-
-#runs new algorithm on new data
-james_pred<-predict(james_tree, part_test,type="class")
+#gets the optimal cp (cp with minimum erro)
+optimal_cp<-james_tree$cptable[which.min(james_tree$cptable[,"xerror"]),"CP"]
+#uses optimal cp to create new tree
+james_ptree<-prune(james_tree,optimal_cp)
+#viewing new tree
+rpart.plot(james_ptree,type = 3,digits = 3, fallen.leaves = TRUE)
+#runs new pruned tree model with partitioned test data
+james_pred<-predict(james_ptree, part_test, type="class")
 confusionMatrix(james_pred,part_test$classe)
 
 
-james_final_prediction<-predict(james_tree,test_final)
+#tests our algorithm on the 20 outputless observations
+james_final_prediction<-predict(james_ptree,test_final)
 james_final_prediction
 
 
@@ -169,3 +182,65 @@ nikki_finalpred
 ```
 
 
+#Support Vector Machine by Stefan (we attempted to tune it but the accuracy only minorly improved and it was quite time consuming)
+```{r}
+stefan_svm <- svm(classe ~. ,data = part_training)
+stefan_pred<- predict(stefan_svm, part_test)
+confusionMatrix(stefan_pred,part_test$classe, dnn=c("prediction","reference"))
+
+
+```
+
+
+
+
+
+#This is Stefan's neural network enter if you dare my computer hates it
+
+scaledata<-scale(train_final[,1:52]) #scale normalization
+
+normalize <- function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+}#max-min normalization
+
+maxmindf<-as.data.frame(lapply(scaledata, normalize))#normilization takes too much computing power
+
+test_final_2<-cbind(maxmindf,class.ind(train_final$classe))
+
+#partitions 70% of data into training set
+trainingRowIndex<-sample(1:nrow(train_final2), size = .7*nrow(train_final2))
+trainset<-train_final2[trainingRowIndex, ]
+
+#leaves 30% for testing and validating 
+testset<-train_final2[-trainingRowIndex, ]
+
+
+library(neuralnet) #Neural Network
+nn <- neuralnet(A + B + C + D + E ~ roll_belt+pitch_belt+yaw_belt+total_accel_belt+gyros_belt_x+gyros_belt_y
+                  +gyros_belt_z+accel_belt_x+accel_belt_y+accel_belt_z+magnet_belt_x+magnet_belt_y
+                  +magnet_belt_z+roll_arm+pitch_arm+yaw_arm+total_accel_arm+gyros_arm_x+gyros_arm_y
+                  +gyros_arm_z+accel_arm_x+accel_arm_y+accel_arm_z+magnet_arm_x+magnet_arm_y+magnet_arm_z
+                  +roll_dumbbell+pitch_dumbbell+yaw_dumbbell+total_accel_dumbbell+gyros_dumbbell_x
+                  +gyros_dumbbell_y+gyros_dumbbell_z+accel_dumbbell_x+accel_dumbbell_y+accel_dumbbell_z
+                  +magnet_dumbbell_x+magnet_dumbbell_y+magnet_dumbbell_z+roll_forearm+pitch_forearm
+                  +yaw_forearm+total_accel_forearm+gyros_forearm_x+gyros_forearm_y+gyros_forearm_z
+                  +accel_forearm_x+accel_forearm_y+accel_forearm_z+magnet_forearm_x+magnet_forearm_y
+                  +magnet_forearm_z, data=test_final_2, hidden=c(10,5),linear.output=FALSE, threshold=0.01)
+nn$result.matrix
+plot(nn)
+
+#Test the resulting output
+temp_test <- subset(testset, select = c("roll_belt","pitch_belt", "yaw_belt","total_accel_belt","gyros_belt_x","gyros_belt_y","gyros_belt_z","accel_belt_x","accel_belt_y","accel_belt_z","magnet_belt_x","magnet_belt_y","magnet_belt_z","roll_arm","pitch_arm","yaw_arm","total_accel_arm","gyros_arm_x","gyros_arm_y","gyros_arm_z","accel_arm_x","accel_arm_y","accel_arm_z","magnet_arm_x","magnet_arm_y","magnet_arm_z","roll_dumbbell","pitch_dumbbell","yaw_dumbbell","total_accel_dumbbell","gyros_dumbbell_x","gyros_dumbbell_y","gyros_dumbbell_z","accel_dumbbell_x","accel_dumbbell_y","accel_dumbbell_z","magnet_dumbbell_x","magnet_dumbbell_y","magnet_dumbbell_z","roll_forearm","pitch_forearm","yaw_forearm","total_accel_forearm","gyros_forearm_x","gyros_forearm_y","gyros_forearm_z","accel_forearm_x","accel_forearm_y","accel_forearm_z","magnet_forearm_x","magnet_forearm_y","magnet_forearm_z"))
+
+head(temp_test)
+
+nn.results <- compute(nn, temp_test)
+
+#Accuracy
+results <- data.frame(actual = testset("A","B","C","D","E"), prediction = nn.results$net.result)
+
+results
+roundedresults<-sapply(results,round,digits=0)
+roundedresultsdf=data.frame(roundedresults)
+attach(roundedresultsdf)
+table(actual,prediction)
